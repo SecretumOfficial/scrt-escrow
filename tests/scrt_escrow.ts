@@ -12,9 +12,9 @@ describe('scrt-escrow', () => {
   const options = anchor.Provider.defaultOptions();
 
   anchor.setProvider(anchor.Provider.env());
-  
+
   const program = anchor.workspace.ScrtEscrow as Program<ScrtEscrow>;
-  
+
   const provider = program.provider;
 
   const wallet = program.provider.wallet as NodeWallet;
@@ -37,6 +37,7 @@ describe('scrt-escrow', () => {
   const mintAuthority = anchor.web3.Keypair.generate();
   const initializerMainAccount = anchor.web3.Keypair.generate();
   const takerMainAccount = anchor.web3.Keypair.generate();
+
 
   it("Initialize program state", async () => {
     // Airdropping tokens to a payer.
@@ -195,6 +196,59 @@ describe('scrt-escrow', () => {
     assert.ok(_initializerTokenAccountA.amount.toNumber() == 0);
     assert.ok(_initializerTokenAccountB.amount.toNumber() == takerAmount);
     assert.ok(_takerTokenAccountB.amount.toNumber() == 0);
+  });
+
+  it("Initialize escrow and cancel escrow", async () => {
+    // Put back tokens into initializer token A account.
+    await mintA.mintTo(
+      initializerTokenAccountA,
+      mintAuthority.publicKey,
+      [mintAuthority],
+      initializerAmount
+    );
+
+    await program.rpc.initialize(
+      vault_account_bump,
+      new anchor.BN(initializerAmount),
+      new anchor.BN(takerAmount),
+      {
+        accounts: {
+          initializer: initializerMainAccount.publicKey,
+          vaultAccount: vault_account_pda,
+          mint: mintA.publicKey,
+          initializerDepositTokenAccount: initializerTokenAccountA,
+          initializerReceiveTokenAccount: initializerTokenAccountB,
+          escrowAccount: escrowAccount.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        },
+        instructions: [
+          await program.account.escrowAccount.createInstruction(escrowAccount),
+        ],
+        signers: [escrowAccount, initializerMainAccount],
+      }
+    );
+
+    // Cancel the escrow.
+    await program.rpc.cancel({
+      accounts: {
+        initializer: initializerMainAccount.publicKey,
+        initializerDepositTokenAccount: initializerTokenAccountA,
+        vaultAccount: vault_account_pda,
+        vaultAuthority: vault_authority_pda,
+        escrowAccount: escrowAccount.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      },
+      signers: [initializerMainAccount]
+    });
+
+    // Check the final owner should be the provider public key.
+    const _initializerTokenAccountA = await mintA.getAccountInfo(initializerTokenAccountA);
+    assert.ok(_initializerTokenAccountA.owner.equals(initializerMainAccount.publicKey));
+
+    // Check all the funds are still there.
+    assert.ok(_initializerTokenAccountA.amount.toNumber() == initializerAmount);
   });
 
 });
