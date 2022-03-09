@@ -1,9 +1,9 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
-    associated_token::AssociatedToken,
-    token::{Mint, Token, TokenAccount, self, CloseAccount, SetAuthority, Transfer},
+    //token::{Mint, TokenAccount, self, CloseAccount, SetAuthority, Transfer},
+    token::{TokenAccount, self, CloseAccount, Transfer},
 };
-use spl_token::instruction::AuthorityType;
+//use spl_token::instruction::AuthorityType;
 
 declare_id!("Hv4LktuBNs6T62X7LEkmqJZseGvVCxwCkAjqFq3pZqCb");
 
@@ -15,10 +15,11 @@ pub mod scrt_escrow {
 
     pub fn initialize(
         ctx: Context<Initialize>,
-        _vault_account_bump: u8,
+        // _vault_account_bump: u8,
         initializer_amount: u64,
         taker_amount: u64,
     ) -> ProgramResult {
+
         ctx.accounts.escrow_account.initializer_key = *ctx.accounts.initializer.key;
         ctx.accounts
             .escrow_account
@@ -34,22 +35,19 @@ pub mod scrt_escrow {
             .initializer_receive_token_account
             .to_account_info()
             .key;
+        ctx.accounts.escrow_account.vault_account = *ctx
+            .accounts
+            .vault_account
+            .to_account_info()
+            .key;
+
         ctx.accounts.escrow_account.initializer_amount = initializer_amount;
         ctx.accounts.escrow_account.taker_amount = taker_amount;
-
-        let (vault_authority, _vault_authority_bump) =
-            Pubkey::find_program_address(&[ESCROW_PDA_SEED], ctx.program_id);
-        token::set_authority(
-            ctx.accounts.into_set_authority_context(),
-            AuthorityType::AccountOwner,
-            Some(vault_authority),
-        )?;
 
         token::transfer(
             ctx.accounts.into_transfer_to_pda_context(),
             ctx.accounts.escrow_account.initializer_amount,
         )?;
-
         Ok(())
     }
 
@@ -102,30 +100,36 @@ pub mod scrt_escrow {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_account_bump: u8, initializer_amount: u64)]
+#[instruction(/*vault_account_bump: u8, */initializer_amount: u64)]
 pub struct Initialize<'info> {
-    #[account(mut, signer)]
+    #[account(signer)]
     pub initializer: AccountInfo<'info>,
-    pub mint: Account<'info, Mint>,
-    #[account(
-        init,
-        seeds = [b"token-seed".as_ref()],
-        bump = vault_account_bump,
-        payer = initializer,
-        token::mint = mint,
-        token::authority = initializer,
+    
+    pub mint: AccountInfo<'info>,
+
+    #[account(mut, 
+        constraint = *vault_account.to_account_info().owner == *token_program.key,        
+        constraint = vault_account.mint == *mint.key
     )]
     pub vault_account: Account<'info, TokenAccount>,
+
     #[account(
         mut,
-        constraint = initializer_deposit_token_account.amount >= initializer_amount
+        constraint = *initializer_deposit_token_account.to_account_info().owner == *token_program.key,
+        constraint = initializer_deposit_token_account.amount >= initializer_amount,
+        constraint = initializer_deposit_token_account.mint == *mint.key
     )]
     pub initializer_deposit_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        constraint = *initializer_receive_token_account.to_account_info().owner == *token_program.key,
+    )]
     pub initializer_receive_token_account: Account<'info, TokenAccount>,
+
     #[account(zero)]
-    pub escrow_account: Box<Account<'info, EscrowAccount>>,
-    pub system_program: AccountInfo<'info>,
-    pub rent: Sysvar<'info, Rent>,
+    pub escrow_account: ProgramAccount<'info, EscrowAccount>,
+    #[account(address = anchor_spl::token::ID)]
     pub token_program: AccountInfo<'info>,
 }
 
@@ -133,7 +137,9 @@ pub struct Initialize<'info> {
 pub struct Cancel<'info> {
     #[account(mut, signer)]
     pub initializer: AccountInfo<'info>,
-    #[account(mut)]
+    #[account(mut,
+        constraint = escrow_account.vault_account == *vault_account.to_account_info().key,
+    )]
     pub vault_account: Account<'info, TokenAccount>,
     pub vault_authority: AccountInfo<'info>,
     #[account(mut)]
@@ -144,7 +150,8 @@ pub struct Cancel<'info> {
         constraint = escrow_account.initializer_deposit_token_account == *initializer_deposit_token_account.to_account_info().key,
         close = initializer
     )]
-    pub escrow_account: Box<Account<'info, EscrowAccount>>,
+    pub escrow_account: ProgramAccount<'info, EscrowAccount>,
+    #[account(address = anchor_spl::token::ID)]
     pub token_program: AccountInfo<'info>,
 }
 
@@ -170,8 +177,10 @@ pub struct Exchange<'info> {
         constraint = escrow_account.initializer_key == *initializer.key,
         close = initializer
     )]
-    pub escrow_account: Box<Account<'info, EscrowAccount>>,
-    #[account(mut)]
+    pub escrow_account: ProgramAccount<'info, EscrowAccount>,
+    #[account(mut,
+        constraint = escrow_account.vault_account == *vault_account.to_account_info().key,
+    )]
     pub vault_account: Account<'info, TokenAccount>,
     pub vault_authority: AccountInfo<'info>,
     pub token_program: AccountInfo<'info>,
@@ -182,6 +191,7 @@ pub struct EscrowAccount {
     pub initializer_key: Pubkey,
     pub initializer_deposit_token_account: Pubkey,
     pub initializer_receive_token_account: Pubkey,
+    pub vault_account: Pubkey,    
     pub initializer_amount: u64,
     pub taker_amount: u64,
 }
@@ -199,13 +209,13 @@ impl<'info> Initialize<'info> {
         CpiContext::new(self.token_program.clone(), cpi_accounts)
     }
 
-    fn into_set_authority_context(&self) -> CpiContext<'_, '_, '_, 'info, SetAuthority<'info>> {
-        let cpi_accounts = SetAuthority {
-            account_or_mint: self.vault_account.to_account_info().clone(),
-            current_authority: self.initializer.clone(),
-        };
-        CpiContext::new(self.token_program.clone(), cpi_accounts)
-    }
+    // fn into_set_authority_context(&self) -> CpiContext<'_, '_, '_, 'info, SetAuthority<'info>> {
+    //     let cpi_accounts = SetAuthority {
+    //         account_or_mint: self.vault_account.to_account_info().clone(),
+    //         current_authority: self.initializer.clone(),
+    //     };
+    //     CpiContext::new(self.token_program.clone(), cpi_accounts)
+    // }
 }
 
 impl<'info> Cancel<'info> {
