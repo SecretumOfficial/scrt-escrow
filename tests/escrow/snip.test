@@ -1,0 +1,16 @@
+local testnet
+solana config set --url http://localhost:8899
+
+devnet
+solana config set --url https://api.devnet.solana.com
+
+testnet
+solana config set --url https://api.testnet.solana.com
+
+
+solana-keygen pubkey
+npm install -g mocha
+
+
+
+mocha --timeout 10000 ./tests/escrow/test_apis.test.js
