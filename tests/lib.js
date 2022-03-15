@@ -18,7 +18,7 @@ async function initialize(
     const [vaultAccount] = await anchor.web3.PublicKey.findProgramAddress(
         [escrow.toBuffer()], program.programId);
 
-    const escrowData = await getEscrowAccount(program, escrow);
+    const escrowData = await utils.getEscrowAccount(program, escrow);
     if(escrowData == null)
     {
         await program.rpc.initialize(
@@ -46,24 +46,6 @@ async function initialize(
     }
 }
 
-async function getEscrowAccount(program, escrowAccount)
-{
-    try{
-        const accData = await program.account.escrowAccount.fetch(escrowAccount);
-        return accData;
-    }catch(e)
-    {
-        return null;
-    }  
-}
-
-async function getEscrowAccountData(program, initializer, depositToken,  receiveToken)
-{
-    const [escrow] = await anchor.web3.PublicKey.findProgramAddress(
-        [initializer.toBuffer(), depositToken.toBuffer(), receiveToken.toBuffer()], program.programId);
-    return await getEscrowAccount(program, escrow);
-}
-
 async function cancel(
     program,
     depositToken,
@@ -74,7 +56,7 @@ async function cancel(
     const [escrow] = await anchor.web3.PublicKey.findProgramAddress(
         [signer.publicKey.toBuffer(), depositToken.toBuffer(), receiveToken.toBuffer()], program.programId);
 
-    const escrowData = await getEscrowAccount(program, escrow);
+    const escrowData = await utils.getEscrowAccount(program, escrow);
     if(escrowData == null)
     {
         return 'no exist escrow';
@@ -111,7 +93,7 @@ async function exchange(
     const [escrow] = await anchor.web3.PublicKey.findProgramAddress(
         [initializer.toBuffer(), depositToken.toBuffer(), receiveToken.toBuffer()], program.programId);
 
-    const escrowData = await getEscrowAccount(program, escrow);
+    const escrowData = await utils.getEscrowAccount(program, escrow);
     if(escrowData == null)
     {
         return 'no exist escrow';
@@ -149,6 +131,5 @@ module.exports = {
     initialize,   
     cancel,
     exchange,
-    getEscrowAccountData,
 }
 
