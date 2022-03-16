@@ -7,12 +7,17 @@
       "accounts": [
         {
           "name": "initializer",
-          "isMut": false,
+          "isMut": true,
           "isSigner": true
         },
         {
-          "name": "mint",
+          "name": "depositToken",
           "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "escrowAccount",
+          "isMut": true,
           "isSigner": false
         },
         {
@@ -26,17 +31,27 @@
           "isSigner": false
         },
         {
+          "name": "receiveToken",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
           "name": "initializerReceiveTokenAccount",
           "isMut": true,
           "isSigner": false
         },
         {
-          "name": "escrowAccount",
-          "isMut": true,
+          "name": "tokenProgram",
+          "isMut": false,
           "isSigner": false
         },
         {
-          "name": "tokenProgram",
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
           "isMut": false,
           "isSigner": false
         }
@@ -93,7 +108,7 @@
       "accounts": [
         {
           "name": "taker",
-          "isMut": false,
+          "isMut": true,
           "isSigner": true
         },
         {
@@ -103,11 +118,6 @@
         },
         {
           "name": "takerReceiveTokenAccount",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "initializerDepositTokenAccount",
           "isMut": true,
           "isSigner": false
         },
@@ -174,9 +184,16 @@
           {
             "name": "takerAmount",
             "type": "u64"
+          },
+          {
+            "name": "initialized",
+            "type": "u8"
           }
         ]
       }
     }
-  ]
+  ],
+  "metadata": {
+    "address": "HbzBdq7txgxVSWGUgyifsCPEGhGmQs5j7ReD9qc1Pdbx"
+  }
 }

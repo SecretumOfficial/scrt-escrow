@@ -4,7 +4,7 @@ const { TOKEN_PROGRAM_ID } = require('@solana/spl-token');
 var sha256 = require('js-sha256');
 const { v4: uuidv4 } = require('uuid');
 const BIPS_PRECISION = 10000;
-const utils = require("./utils");
+const utils = require("../../lib/utils");
 const { programId } = require('../config');
 
 
@@ -24,49 +24,36 @@ function formatError(errors, err)
 }
 
 async function initialize(program, connection, 
-    initializerAmount, takerAmount, mintA, mintB, signer){
+    initializerAmount, takerAmount, depositToken, receiveToken, signer){
 
     //create tokenA account
-    let initializerTokenAccountA = await utils.createAssociatedTokenAccount(
-        connection, mintA, signer, signer.publicKey, false);
+    let initializerDepositTokenAccount = await utils.createAssociatedTokenAccount(
+        connection, depositToken, signer, signer.publicKey, false);
 
     //create tokenB account        
-    let initializerTokenAccountB = await utils.createAssociatedTokenAccount(
-        connection, mintB, signer, signer.publicKey, false);
+    let initializerReceiveTokenAccount = await utils.createAssociatedTokenAccount(
+        connection, receiveToken, signer, signer.publicKey, false);
 
-    //creating escrow account
-    let escrow = await utils.createAccount(connection, signer, 8 + 4 * 32 + 16, program.programId);
-        
-    // const [vault_account_pda, vault_account_bump] = await anchor.web3.PublicKey.findProgramAddress(
-    //     [Buffer.from(anchor.utils.bytes.utf8.encode("token-seed"))],
-    //     program.programId
-    // );
-
-    const [vault_authority_pda, _vault_authority_bump] = await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from(anchor.utils.bytes.utf8.encode("escrow")), escrow.toBuffer()],
-        program.programId
-      );
-
-    const vault_account = await utils.createAssociatedTokenAccount(
-        connection, mintA, signer, vault_authority_pda, true);
-    console.log("vault_account=",vault_account.toString());
-
+    const [escrow] = await anchor.web3.PublicKey.findProgramAddress(
+        [signer.publicKey.toBuffer(), depositToken.toBuffer(), receiveToken.toBuffer()], program.programId);
+    const [vaultAccount] = await anchor.web3.PublicKey.findProgramAddress(
+        [escrow.toBuffer()], program.programId);
+    
     let instr = program.instruction.initialize(
-//        vault_account_bump,
         new anchor.BN(initializerAmount),
         new anchor.BN(takerAmount),  
         {
             accounts: {
                 initializer: signer.publicKey,
-                //vaultAccount: vault_account_pda,
-                vaultAccount: vault_account,
-                mint: mintA,
-                initializerDepositTokenAccount: initializerTokenAccountA,
-                initializerReceiveTokenAccount: initializerTokenAccountB,
+                vaultAccount: vaultAccount,
+                depositToken: depositToken,
+                receiveToken: receiveToken,
+                initializerDepositTokenAccount: initializerDepositTokenAccount,
+                initializerReceiveTokenAccount: initializerReceiveTokenAccount,
                 escrowAccount: escrow,                
-                // systemProgram: anchor.web3.SystemProgram.programId,
-                // rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-                tokenProgram: TOKEN_PROGRAM_ID,      
+                systemProgram: anchor.web3.SystemProgram.programId,
+                rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+                tokenProgram: TOKEN_PROGRAM_ID,
             }
         }
     );
@@ -78,31 +65,93 @@ async function initialize(program, connection,
 }
 
 
-class Clock{
-    slot = 0
-    epoch_start_timestamp = 0;
-    epoch = 0;
-    leader_schedule_epoch = 0;
-    unix_timestamp =0;
-    deser(buffer){
-        const reader = new borsh.BinaryReader(buffer);
-        this.slot = reader.readU64().toNumber();
-        this.epoch_start_timestamp = reader.readU64().toNumber();
-        this.epoch = reader.readU64().toNumber();
-        this.leader_schedule_epoch = reader.readU64().toNumber();
-        this.unix_timestamp = reader.readU64().toNumber();
+async function cancel(
+    program,
+    connection,
+    depositToken,
+    receiveToken,
+    signer,
+) {
+
+    const [escrow] = await anchor.web3.PublicKey.findProgramAddress(
+        [signer.publicKey.toBuffer(), depositToken.toBuffer(), receiveToken.toBuffer()], program.programId);
+
+    const escrowData = await utils.getEscrowAccount(program, escrow);
+    if(escrowData == null)
+    {
+        return [null, 'no exist escrow'];
     }
+
+    const [vaultAuthority] = await anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from('escrow'), escrow.toBuffer()], program.programId);
+
+    const instr = program.instruction.cancel(
+        {
+            accounts: {
+                initializer: signer.publicKey,
+                escrowAccount: escrow,
+                vaultAccount: escrowData.vaultAccount,
+                vaultAuthority: vaultAuthority,
+                initializerDepositTokenAccount: escrowData.initializerDepositTokenAccount,
+                tokenProgram: TOKEN_PROGRAM_ID,
+            },
+        },
+    );
+    const res = await utils.performInstructions(connection, signer, [instr]);
+    if(res[0])
+        return [escrow, 'ok'];
+    return [null, formatError(program._idl.errors, res[1])];
 }
 
-async function get_now_ts(provider){
-    const accountInfo = await provider.connection.getAccountInfo(anchor.web3.SYSVAR_CLOCK_PUBKEY);
-    let clock = new Clock();
-    clock.deser(accountInfo.data);
-    return clock.unix_timestamp;
+async function exchange(
+    program,
+    connection,
+    initializer,
+    depositToken,
+    receiveToken,
+    signer,
+) {
+
+    const [escrow] = await anchor.web3.PublicKey.findProgramAddress(
+        [initializer.toBuffer(), depositToken.toBuffer(), receiveToken.toBuffer()], program.programId);
+
+    const escrowData = await utils.getEscrowAccount(program, escrow);
+    if(escrowData == null)
+    {
+        return [null, 'no exist escrow'];
+    }
+
+    const takerDepositTokenAccount = await utils.getAssociatedTokenAddress(receiveToken, signer.publicKey, false);
+    const takerReceiveTokenAccount = await utils.getAssociatedTokenAddress(depositToken, signer.publicKey, false);    
+
+    const [vaultAuthority] = await anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from('escrow'), escrow.toBuffer()], program.programId);
+
+    const instr = program.instruction.exchange(
+        {
+            accounts: {
+                taker: signer.publicKey,
+                takerDepositTokenAccount: takerDepositTokenAccount,
+                takerReceiveTokenAccount: takerReceiveTokenAccount,
+                initializerReceiveTokenAccount: escrowData.initializerReceiveTokenAccount,
+                initializer: initializer,
+                escrowAccount: escrow,
+                vaultAccount: escrowData.vaultAccount,
+                vaultAuthority: vaultAuthority,
+                tokenProgram: TOKEN_PROGRAM_ID,
+            },
+        },
+    );
+    const res = await utils.performInstructions(connection, signer, [instr]);
+    if(res[0])
+        return [escrow, 'ok'];
+    return [null, formatError(program._idl.errors, res[1])];
 }
+
 
 
 module.exports = {
     initialize,
-    get_now_ts,
+    cancel,
+    exchange
 };

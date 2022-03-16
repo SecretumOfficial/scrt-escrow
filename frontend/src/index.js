@@ -8,7 +8,7 @@ import {
   URL
 } from '../config';
 const lib = require("./lib");
-const utils = require("./utils");
+const utils = require("../../lib/utils");
 
 window.Buffer = window.Buffer || require('buffer').Buffer;
 
@@ -176,6 +176,48 @@ const initialize = async () => {
   }
 }
 
+const cancel = async () => {
+  const mintA = new web3.PublicKey(document.getElementById('mint_a').value);
+  const mintB = new web3.PublicKey(document.getElementById('mint_b').value);  
+
+  const connection = new web3.Connection(URL, 'confirmed');
+  const provider = await getProvider();
+  const anchor_provider = await getAnchorProvider();
+  const program = new anchor.Program(tokenlockIdl, programId, anchor_provider);
+
+  const res = await lib.cancel(program, connection,  mintA, mintB, provider);
+
+  if(res[0] == null)
+  {
+    alert(res[1]);
+  }else{
+    document.getElementById("escrow_account").value = "";
+    alert("cancel success!");
+  }
+}
+
+
+const exchange = async () => {
+  const mintA = new web3.PublicKey(document.getElementById('mint_a').value);
+  const mintB = new web3.PublicKey(document.getElementById('mint_b').value);  
+  const initializer = new web3.PublicKey(document.getElementById('initializer').value);
+
+  const connection = new web3.Connection(URL, 'confirmed');
+  const provider = await getProvider();
+  const anchor_provider = await getAnchorProvider();
+  const program = new anchor.Program(tokenlockIdl, programId, anchor_provider);
+
+  const res = await lib.exchange(program, connection, initializer, mintA, mintB, provider);
+
+  if(res[0] == null)
+  {
+    alert(res[1]);
+  }else{
+    document.getElementById("escrow_account").value = '';
+    alert("exchange success!");
+  }
+}
+
 
 const stat_refresh = async () => {
   const anchor_provider = await getAnchorProvider();
@@ -212,8 +254,15 @@ const stat_refresh = async () => {
   const mintto_btn = document.getElementById('mintto_btn');  
   mintto_btn.addEventListener('click', mintTo);
 
-  const init_staking_btn = document.getElementById('init_staking_btn');  
-  init_staking_btn.addEventListener('click', initialize);
+  const init_btn = document.getElementById('init_btn');  
+  init_btn.addEventListener('click', initialize);
+
+  const cancel_btn = document.getElementById('cancel_btn');  
+  cancel_btn.addEventListener('click', cancel);
+
+  const excahnge_btn = document.getElementById('excahnge_btn');  
+  excahnge_btn.addEventListener('click', exchange);
+  
 
   const pda_state_btn = document.getElementById('pda_state_btn');  
   pda_state_btn.addEventListener('click', stat_refresh); 
