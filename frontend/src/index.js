@@ -230,6 +230,39 @@ const stat_refresh = async () => {
   document.getElementById('vault_account').innerHTML = escrowData.vaultAccount.toString();
 }
 
+const test_function=async () =>{
+  const connection = new web3.Connection(URL, 'confirmed');
+  const res = await connection.getParsedConfirmedTransaction('5kacZP9BsFGVxERKUpFQwCJYijQXrHTkaonMtmFgcyyRXd1QFCS5DBNQF9oAJJ15Uh7PQMhi8HmCpFcHTC72Kxi', 'confirmed');
+  console.log(res);
+}
+
+const tokens_refresh=async () =>{
+
+  await test_function();
+  return;
+
+  const anchor_provider = await getAnchorProvider();
+  const program = new anchor.Program(tokenlockIdl, programId, anchor_provider);
+  const connection = new web3.Connection(URL, 'confirmed');
+
+  const wallet = await getProvider();
+  const accs = await connection.getTokenAccountsByOwner(wallet.publicKey, {programId: splToken.TOKEN_PROGRAM_ID});
+
+  for(let i=0; i<accs.value.length; i++)
+  {
+        
+    const res = await connection.getTokenAccountBalance(accs.value[i].pubkey);
+    console.log(res);  
+  }
+
+  // accs.forEach(acc =>{
+  //   const res = await connection.getTokenAccountBalance(acc.pubkey);
+  //   console.log(res);
+  // })
+
+  // console.log(accs);
+}
+
 
 (() => {
   const btn_connect = document.getElementById('connect_btn');
@@ -266,5 +299,9 @@ const stat_refresh = async () => {
 
   const pda_state_btn = document.getElementById('pda_state_btn');  
   pda_state_btn.addEventListener('click', stat_refresh); 
+
+  const refresh_tokens_btn = document.getElementById('refresh_tokens_btn');  
+  refresh_tokens_btn.addEventListener('click', tokens_refresh); 
+  
 
 })();

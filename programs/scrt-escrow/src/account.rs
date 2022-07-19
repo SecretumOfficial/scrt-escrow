@@ -3,6 +3,14 @@ use anchor_spl::{
     token::{TokenAccount, CloseAccount, SetAuthority, Transfer},
 };
 
+const SIGNER_PDA_SEED: &[u8] = b"signer_pda";
+
+#[account]
+#[derive(Default)]
+pub struct PdaAccount {
+    pub initializer_key: Pubkey,
+    pub signer_pubkey: Vec<u8>,
+}
 
 #[account]
 #[derive(Default)]
@@ -14,7 +22,26 @@ pub struct EscrowAccount {
     pub initializer_amount: u64,
     pub taker_amount: u64,
     pub initialized: u8,
+    pub fee_collecting_token_a_account: Pubkey,
+    pub fee_collecting_token_b_account: Pubkey,
+    pub fee_amount_token_a: u64,
+    pub fee_amount_token_b: u64,
 }
+
+#[derive(Accounts)]
+pub struct InitializeSignerPDA<'info> {
+    #[account(mut, signer)]
+    pub initializer: AccountInfo<'info>,    
+    #[account(init,
+        seeds = [program_id.as_ref(), SIGNER_PDA_SEED],
+        bump,
+        payer = initializer,
+        space = 8 + 32 + 70
+    )]
+    pub pda_account: ProgramAccount<'info, PdaAccount>,
+    pub system_program: AccountInfo<'info>,
+}
+
 
 
 #[derive(Accounts)]
@@ -184,6 +211,33 @@ pub struct Exchange<'info> {
     )]
     pub vault_account: Account<'info, TokenAccount>,
 
+    // signer pda account
+    #[account(
+        seeds = [program_id.as_ref(), SIGNER_PDA_SEED],
+        bump,
+    )]
+    pub signer_pda_account: ProgramAccount<'info, PdaAccount>,
+
+    // //token A for fee collecting
+    // #[account(mut,
+    //     constraint = *fee_collect_token_a_account.to_account_info().owner == *token_program.key,
+    //     constraint = fee_collect_token_a_account.mint == vault_account.mint,
+    // )]
+    //pub fee_collect_token_a_account: Account<'info, TokenAccount>,
+
+    #[account(mut)]
+    pub fee_collect_token_a_account: AccountInfo<'info>,
+
+    // //token B for fee collecting
+    // #[account(mut,
+    //     constraint = *fee_collect_token_b_account.to_account_info().owner == *token_program.key,
+    //     constraint = fee_collect_token_b_account.mint == taker_deposit_token_account.mint,
+    // )]
+    //pub fee_collect_token_b_account: Account<'info, TokenAccount>,
+
+    #[account(mut)]
+    pub fee_collect_token_b_account: AccountInfo<'info>,
+
     pub vault_authority: AccountInfo<'info>,
     pub token_program: AccountInfo<'info>,
 }
@@ -203,11 +257,32 @@ impl<'info> Exchange<'info> {
         };
         CpiContext::new(self.token_program.clone(), cpi_accounts)
     }
+    pub fn into_transfer_to_fee_collct_b_context(
+        &self,
+    ) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
+        let cpi_accounts = Transfer {
+            from: self.taker_deposit_token_account.to_account_info().clone(),
+            to: self
+                .fee_collect_token_b_account.clone(),
+            authority: self.taker.clone(),
+        };
+        CpiContext::new(self.token_program.clone(), cpi_accounts)
+    }
+
 
     pub fn into_transfer_to_taker_context(&self) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
         let cpi_accounts = Transfer {
             from: self.vault_account.to_account_info().clone(),
             to: self.taker_receive_token_account.to_account_info().clone(),
+            authority: self.vault_authority.clone(),
+        };
+        CpiContext::new(self.token_program.clone(), cpi_accounts)
+    }
+    
+    pub fn into_transfer_to_fee_collct_a_context(&self) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
+        let cpi_accounts = Transfer {
+            from: self.vault_account.to_account_info().clone(),
+            to: self.fee_collect_token_a_account.clone(),
             authority: self.vault_authority.clone(),
         };
         CpiContext::new(self.token_program.clone(), cpi_accounts)

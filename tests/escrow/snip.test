@@ -12,6 +12,7 @@ solana-keygen pubkey
 npm install -g mocha
 
 mocha --timeout 10000 ./tests/escrow/test_apis.test.js
+mocha --timeout 10000 ./tests/escrow/test_verify.test.js
 
 
 

@@ -26,13 +26,16 @@ function formatError(errors, err)
 async function initialize(program, connection, 
     initializerAmount, takerAmount, depositToken, receiveToken, signer){
 
+    let instructions = []; 
     //create tokenA account
-    let initializerDepositTokenAccount = await utils.createAssociatedTokenAccount(
+    let [initializerDepositTokenAccount, insts] = await utils.createAssociatedTokenAccount(
         connection, depositToken, signer, signer.publicKey, false);
+    instructions.push(...insts);
 
     //create tokenB account        
-    let initializerReceiveTokenAccount = await utils.createAssociatedTokenAccount(
+    let [initializerReceiveTokenAccount, insts1] = await utils.createAssociatedTokenAccount(
         connection, receiveToken, signer, signer.publicKey, false);
+    instructions.push(...insts1);
 
     const [escrow] = await anchor.web3.PublicKey.findProgramAddress(
         [signer.publicKey.toBuffer(), depositToken.toBuffer(), receiveToken.toBuffer()], program.programId);
@@ -57,8 +60,11 @@ async function initialize(program, connection,
             }
         }
     );
+    instructions.push(instr);
 
-    const res = await utils.performInstructions(connection, signer, [instr]);
+    console.log("insts coount=", instructions.length);
+
+    const res = await utils.performInstructions(connection, signer, instructions);
     if(res[0])
         return [escrow, 'ok'];
     return [null, formatError(program._idl.errors, res[1])];
@@ -99,7 +105,12 @@ async function cancel(
     );
     const res = await utils.performInstructions(connection, signer, [instr]);
     if(res[0])
+    {
+        const res1 = await connection.getParsedConfirmedTransaction(res[1], 'confirmed');
+        console.log(res1);
         return [escrow, 'ok'];
+    }
+        
     return [null, formatError(program._idl.errors, res[1])];
 }
 

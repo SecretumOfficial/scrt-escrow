@@ -1,1 +1,20 @@
-{"url":"http://localhost:8899","program":"HbzBdq7txgxVSWGUgyifsCPEGhGmQs5j7ReD9qc1Pdbx"}
+{
+    "network": "testnet",
+    "localhost": {
+        "url":"http://localhost:8899",
+        "program":"HbzBdq7txgxVSWGUgyifsCPEGhGmQs5j7ReD9qc1Pdbx"
+    },
+    "testnet": {
+        "url":"https://api.testnet.solana.com",
+        "program":"G1DWoX1TXqmeSveZNdUdFLvs4mcsGgQWQ8Sk29SYXjix"
+    },
+    "devnet": {
+        "url":"https://api.devnet.solana.com",
+        "program":"87hC1nD9L3WNJm4aXeboXXjps172pBLGMpvCYhVvw37p"
+    },
+    "mainnet": {
+        "url":"https://api.devnet.solana.com",
+        "program":"87hC1nD9L3WNJm4aXeboXXjps172pBLGMpvCYhVvw37p"
+    }
+}
+
