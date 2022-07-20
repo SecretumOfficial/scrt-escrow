@@ -2,28 +2,6 @@ const anchor = require('@project-serum/anchor');
 const { TOKEN_PROGRAM_ID } = require('@solana/spl-token');
 const utils = require('../lib/utils');
 
-async function initializeSigner(program, signer, pubkey){
-    const [pdaAccount] = await anchor.web3.PublicKey.findProgramAddress(
-        [program.programId.toBuffer(), Buffer.from('signer_pda')], program.programId);
-
-    const pdaData = await utils.getPdaAccount(program, pdaAccount);
-    if(pdaData == null){
-        await program.rpc.initializeSigner(
-            pubkey,
-            {
-                accounts: {
-                    initializer: signer.publicKey,
-                    pdaAccount: pdaAccount,
-                    systemProgram: anchor.web3.SystemProgram.programId,
-                },
-                signers: [signer],
-            },
-        );
-        return 'ok';
-    }else{
-        return 'alreday exist';
-    }
-}
 
 async function initialize(
     program,    
@@ -33,6 +11,10 @@ async function initialize(
     initDepositTokenAcc,
     receiveToken,    
     initReceiveTokenAcc,
+    feeCollectTokenAAccount,
+    feeCollectTokenBAccount,
+    tokenAFeeAmount,
+    tokenBFeeAmount,
     signer,
 ) {
 
@@ -47,6 +29,8 @@ async function initialize(
         await program.rpc.initialize(
             new anchor.BN(initDepositTokenAmount),
             new anchor.BN(takerAmount),
+            new anchor.BN(tokenAFeeAmount),
+            new anchor.BN(tokenBFeeAmount),
             {
                 accounts: {
                     initializer: signer.publicKey,
@@ -56,6 +40,8 @@ async function initialize(
                     initializerDepositTokenAccount: initDepositTokenAcc,
                     receiveToken: receiveToken,
                     initializerReceiveTokenAccount: initReceiveTokenAcc,
+                    feeCollectTokenAAccount,
+                    feeCollectTokenBAccount,
                     tokenProgram: TOKEN_PROGRAM_ID,
                     systemProgram: anchor.web3.SystemProgram.programId,
                     rent: anchor.web3.SYSVAR_RENT_PUBKEY,
@@ -110,12 +96,6 @@ async function exchange(
     receiveToken,
     takerDepositToken,
     takerReceiveToken,
-    feeCollectTokenAAccount,
-    feeCollectTokenBAccount,
-    tokenAFee,
-    tokenBFee,
-    r,
-    s,
     signer,
 ) {
 
@@ -132,22 +112,10 @@ async function exchange(
         return 'escrow is not initailized';
     }
 
-    const [pdaAccount] = await anchor.web3.PublicKey.findProgramAddress(
-        [program.programId.toBuffer(), Buffer.from('signer_pda')], program.programId);
-
-    const  pdaData=  await utils.getPdaAccount(pdaAccount);
-    // if(pdaData == null){
-    //     return 'no initialized PDA';
-    // }
-    // console.log("pda=", pdaData);
-
     const [vaultAuthority] = await anchor.web3.PublicKey.findProgramAddress(
         [Buffer.from('escrow'), escrow.toBuffer()], program.programId);
 
     await program.rpc.exchange(
-        new anchor.BN(tokenAFee),
-        new anchor.BN(tokenBFee),
-        r, s,
         {
             accounts: {
                 taker: signer.publicKey,
@@ -157,9 +125,8 @@ async function exchange(
                 initializer: initializer,
                 escrowAccount: escrow,
                 vaultAccount: escrowData.vaultAccount,
-                signerPdaAccount: pdaAccount,
-                feeCollectTokenAAccount: feeCollectTokenAAccount,
-                feeCollectTokenBAccount: feeCollectTokenBAccount,
+                feeCollectTokenAAccount: escrowData.feeCollectTokenAAccount,
+                feeCollectTokenBAccount: escrowData.feeCollectTokenBAccount,
                 vaultAuthority: vaultAuthority,
                 tokenProgram: TOKEN_PROGRAM_ID,
             },
@@ -170,7 +137,6 @@ async function exchange(
 }
 
 module.exports = {
-    initializeSigner,
     initialize,   
     cancel,
     exchange,
