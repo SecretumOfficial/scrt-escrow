@@ -17,18 +17,9 @@ pub mod scrt_escrow {
         ctx: Context<Initialize>,
         initializer_amount: u64,
         taker_amount: u64,
-        fee_amount_token_a: u64,
-        fee_amount_token_b: u64,
+        fee_amount_initializer: u64,
+        fee_amount_taker: u64,
     ) -> ProgramResult {
-        //check amounts
-        if initializer_amount < fee_amount_token_a {
-            return Err(ProgramError::Custom(4001));
-        }
-
-        if taker_amount < fee_amount_token_b {
-            return Err(ProgramError::Custom(4002));
-        }
-
         ctx.accounts.escrow_account.initializer_key = *ctx.accounts.initializer.key;
         ctx.accounts
             .escrow_account
@@ -47,6 +38,9 @@ pub mod scrt_escrow {
         ctx.accounts.escrow_account.vault_account =
             *ctx.accounts.vault_account.to_account_info().key;
 
+        ctx.accounts.escrow_account.vault_fee_account =
+            *ctx.accounts.vault_fee_account.to_account_info().key;
+
         ctx.accounts.escrow_account.initializer_amount = initializer_amount;
         ctx.accounts.escrow_account.taker_amount = taker_amount;
 
@@ -57,30 +51,43 @@ pub mod scrt_escrow {
             ],
             ctx.program_id,
         );
+
+        //set vault authority
         token::set_authority(
             ctx.accounts.into_set_authority_context(),
             AuthorityType::AccountOwner,
             Some(vault_authority),
         )?;
 
+        //deposit initializer token
         token::transfer(
             ctx.accounts.into_transfer_to_pda_context(),
             ctx.accounts.escrow_account.initializer_amount,
         )?;
 
+        //set vault fee authority
+        token::set_authority(
+            ctx.accounts.into_set_authority_vault_fee_context(),
+            AuthorityType::AccountOwner,
+            Some(vault_authority),
+        )?;
+
+        //deposit fee from initializer fee paying token
+        token::transfer(
+            ctx.accounts.into_transfer_to_vault_fee_context(),
+            fee_amount_initializer,
+        )?;
+
+
         ctx.accounts.escrow_account.initialized = 1;
-        ctx.accounts.escrow_account.fee_collect_token_a_account = *ctx
+        ctx.accounts.escrow_account.fee_collect_token_account = *ctx
             .accounts
-            .fee_collect_token_a_account
+            .fee_collect_token_account
             .to_account_info()
             .key;
-        ctx.accounts.escrow_account.fee_collect_token_b_account = *ctx
-            .accounts
-            .fee_collect_token_b_account
-            .to_account_info()
-            .key;
-        ctx.accounts.escrow_account.fee_amount_token_a = fee_amount_token_a;
-        ctx.accounts.escrow_account.fee_amount_token_b = fee_amount_token_b;
+        ctx.accounts.escrow_account.fee_amount_initializer = fee_amount_initializer;
+        ctx.accounts.escrow_account.fee_amount_taker = fee_amount_taker;
+        ctx.accounts.escrow_account.initializer_fee_paying_token_account = *ctx.accounts.initializer_fee_paying_token_account.to_account_info().key;
         Ok(())
     }
 
@@ -98,6 +105,7 @@ pub mod scrt_escrow {
             &[vault_authority_bump],
         ];
 
+        //withdraw initilzier token
         token::transfer(
             ctx.accounts
                 .into_transfer_to_initializer_context()
@@ -105,9 +113,23 @@ pub mod scrt_escrow {
             ctx.accounts.escrow_account.initializer_amount,
         )?;
 
+        //withdraw fee  
+        token::transfer(
+            ctx.accounts
+                .into_transfer_to_initializer_fee_paying_context()
+                .with_signer(&[&authority_seeds[..]]),
+            ctx.accounts.escrow_account.fee_amount_initializer,
+        )?;
+
         token::close_account(
             ctx.accounts
                 .into_close_context()
+                .with_signer(&[&authority_seeds[..]]),
+        )?;
+
+        token::close_account(
+            ctx.accounts
+                .into_close_vault_fee_context()
                 .with_signer(&[&authority_seeds[..]]),
         )?;
 
@@ -132,35 +154,41 @@ pub mod scrt_escrow {
         //collect fee
         token::transfer(
             ctx.accounts.into_transfer_to_fee_collct_b_context(),
-            ctx.accounts.escrow_account.fee_amount_token_b,
+            ctx.accounts.escrow_account.fee_amount_taker ,
         )?;
 
         token::transfer(
             ctx.accounts
                 .into_transfer_to_fee_collct_a_context()
                 .with_signer(&[&authority_seeds[..]]),
-            ctx.accounts.escrow_account.fee_amount_token_a,
+            ctx.accounts.escrow_account.fee_amount_initializer,
         )?;
 
+        //exchange tokens
         token::transfer(
             ctx.accounts.into_transfer_to_initializer_context(),
-            ctx.accounts.escrow_account.taker_amount
-                - ctx.accounts.escrow_account.fee_amount_token_b,
+            ctx.accounts.escrow_account.taker_amount,
         )?;
 
         token::transfer(
             ctx.accounts
                 .into_transfer_to_taker_context()
                 .with_signer(&[&authority_seeds[..]]),
-            ctx.accounts.escrow_account.initializer_amount
-                - ctx.accounts.escrow_account.fee_amount_token_a,
+            ctx.accounts.escrow_account.initializer_amount,
         )?;
 
+        //close accounts
         token::close_account(
             ctx.accounts
                 .into_close_context()
                 .with_signer(&[&authority_seeds[..]]),
         )?;
+        token::close_account(
+            ctx.accounts
+                .into_close_vault_fee_context()
+                .with_signer(&[&authority_seeds[..]]),
+        )?;
+
         ctx.accounts.escrow_account.initialized = 0;
         Ok(())
     }

@@ -11,10 +11,11 @@ async function initialize(
     initDepositTokenAcc,
     receiveToken,    
     initReceiveTokenAcc,
-    feeCollectTokenAAccount,
-    feeCollectTokenBAccount,
-    tokenAFeeAmount,
-    tokenBFeeAmount,
+    feeToken,
+    feeCollectTokenAccount,
+    feeAmountInitializer,
+    feeAmountTaker,
+    initFeePayTokenAcc,
     signer,
 ) {
 
@@ -22,15 +23,17 @@ async function initialize(
         [signer.publicKey.toBuffer(), depositToken.toBuffer(), receiveToken.toBuffer()], program.programId);
     const [vaultAccount] = await anchor.web3.PublicKey.findProgramAddress(
         [escrow.toBuffer()], program.programId);
-
+    const [vaultFeeAccount] = await anchor.web3.PublicKey.findProgramAddress(
+        [escrow.toBuffer(), feeToken.toBuffer()], program.programId);
+    
     const escrowData = await utils.getEscrowAccount(program, escrow);
     if(escrowData == null)
     {
         await program.rpc.initialize(
             new anchor.BN(initDepositTokenAmount),
             new anchor.BN(takerAmount),
-            new anchor.BN(tokenAFeeAmount),
-            new anchor.BN(tokenBFeeAmount),
+            new anchor.BN(feeAmountInitializer),
+            new anchor.BN(feeAmountTaker),
             {
                 accounts: {
                     initializer: signer.publicKey,
@@ -40,8 +43,10 @@ async function initialize(
                     initializerDepositTokenAccount: initDepositTokenAcc,
                     receiveToken: receiveToken,
                     initializerReceiveTokenAccount: initReceiveTokenAcc,
-                    feeCollectTokenAAccount,
-                    feeCollectTokenBAccount,
+                    feeToken,
+                    vaultFeeAccount,
+                    feeCollectTokenAccount,
+                    initializerFeePayingTokenAccount: initFeePayTokenAcc,
                     tokenProgram: TOKEN_PROGRAM_ID,
                     systemProgram: anchor.web3.SystemProgram.programId,
                     rent: anchor.web3.SYSVAR_RENT_PUBKEY,
@@ -80,8 +85,10 @@ async function cancel(
                 initializer: signer.publicKey,
                 escrowAccount: escrow,
                 vaultAccount: escrowData.vaultAccount,
-                vaultAuthority: vaultAuthority,
+                vaultFeeAccount: escrowData.vaultFeeAccount,
+                vaultAuthority: vaultAuthority,                
                 initializerDepositTokenAccount: escrowData.initializerDepositTokenAccount,
+                initializerFeePayingTokenAccount: escrowData.initializerFeePayingTokenAccount,
                 tokenProgram: TOKEN_PROGRAM_ID,
             },
             signers: [signer],
@@ -96,6 +103,7 @@ async function exchange(
     receiveToken,
     takerDepositToken,
     takerReceiveToken,
+    takerFeePayAcc,
     signer,
 ) {
 
@@ -125,8 +133,9 @@ async function exchange(
                 initializer: initializer,
                 escrowAccount: escrow,
                 vaultAccount: escrowData.vaultAccount,
-                feeCollectTokenAAccount: escrowData.feeCollectTokenAAccount,
-                feeCollectTokenBAccount: escrowData.feeCollectTokenBAccount,
+                vaultFeeAccount: escrowData.vaultFeeAccount,
+                feeCollectTokenAccount: escrowData.feeCollectTokenAccount,
+                takerFeePayingTokenAccount: takerFeePayAcc,
                 vaultAuthority: vaultAuthority,
                 tokenProgram: TOKEN_PROGRAM_ID,
             },
