@@ -13,6 +13,30 @@ pub mod scrt_escrow {
 
     const ESCROW_PDA_SEED: &[u8] = b"escrow";
 
+    pub fn initialize_pda(ctx: Context<InitializePda>) -> ProgramResult {
+        let (vault_fee_authority, _vault_authority_bump) = Pubkey::find_program_address(
+            &[
+                ctx.accounts.pda_account.to_account_info().key.as_ref(),
+                ESCROW_PDA_SEED,
+            ],
+            ctx.program_id,
+        );
+        //set vault fee account authority
+        token::set_authority(
+            ctx.accounts.into_set_authority_context(),
+            AuthorityType::AccountOwner,
+            Some(vault_fee_authority),
+        )?;
+
+        //set authority
+        ctx.accounts.pda_account.initializer_key = *ctx.accounts.initializer.key;
+        ctx.accounts.pda_account.fee_token = *ctx.accounts.fee_token.key;
+        ctx.accounts.pda_account.vault_fee_account =
+            *ctx.accounts.vault_fee_account.to_account_info().key;
+        ctx.accounts.pda_account.vault_fee_authority = vault_fee_authority;
+        Ok(())
+    }
+
     pub fn initialize(
         ctx: Context<Initialize>,
         initializer_amount: u64,
@@ -20,7 +44,9 @@ pub mod scrt_escrow {
         fee_amount_initializer: u64,
         fee_amount_taker: u64,
     ) -> ProgramResult {
+        //initializer
         ctx.accounts.escrow_account.initializer_key = *ctx.accounts.initializer.key;
+        //initializer_deposit
         ctx.accounts
             .escrow_account
             .initializer_deposit_token_account = *ctx
@@ -28,6 +54,7 @@ pub mod scrt_escrow {
             .initializer_deposit_token_account
             .to_account_info()
             .key;
+        //initializer_receive
         ctx.accounts
             .escrow_account
             .initializer_receive_token_account = *ctx
@@ -35,15 +62,11 @@ pub mod scrt_escrow {
             .initializer_receive_token_account
             .to_account_info()
             .key;
+        //vault
         ctx.accounts.escrow_account.vault_account =
             *ctx.accounts.vault_account.to_account_info().key;
 
-        ctx.accounts.escrow_account.vault_fee_account =
-            *ctx.accounts.vault_fee_account.to_account_info().key;
-
-        ctx.accounts.escrow_account.initializer_amount = initializer_amount;
-        ctx.accounts.escrow_account.taker_amount = taker_amount;
-
+        //vault authority
         let (vault_authority, _vault_authority_bump) = Pubkey::find_program_address(
             &[
                 ESCROW_PDA_SEED,
@@ -51,43 +74,54 @@ pub mod scrt_escrow {
             ],
             ctx.program_id,
         );
-
-        //set vault authority
         token::set_authority(
             ctx.accounts.into_set_authority_context(),
             AuthorityType::AccountOwner,
             Some(vault_authority),
-        )?;
+        )?;        
+        ctx.accounts.escrow_account.vault_authority = vault_authority;
+
+
+        //deposit token
+        ctx.accounts.escrow_account.deposit_token = *ctx.accounts.deposit_token.key;
+        //recevie token
+        ctx.accounts.escrow_account.receive_token = *ctx.accounts.receive_token.key;
+        //fee token
+        ctx.accounts.escrow_account.fee_token = *ctx.accounts.fee_token.key;
+
+        //trading amounts
+        ctx.accounts.escrow_account.initializer_amount = initializer_amount;
+        ctx.accounts.escrow_account.taker_amount = taker_amount;
 
         //deposit initializer token
         token::transfer(
-            ctx.accounts.into_transfer_to_pda_context(),
+            ctx.accounts.into_transfer_to_vault_context(),
             ctx.accounts.escrow_account.initializer_amount,
-        )?;
-
-        //set vault fee authority
-        token::set_authority(
-            ctx.accounts.into_set_authority_vault_fee_context(),
-            AuthorityType::AccountOwner,
-            Some(vault_authority),
         )?;
 
         //deposit fee from initializer fee paying token
         token::transfer(
-            ctx.accounts.into_transfer_to_vault_fee_context(),
+            ctx.accounts.into_transfer_fee_to_vault_fee_context(),
             fee_amount_initializer,
         )?;
 
-
         ctx.accounts.escrow_account.initialized = 1;
-        ctx.accounts.escrow_account.fee_collect_token_account = *ctx
-            .accounts
-            .fee_collect_token_account
-            .to_account_info()
-            .key;
+        //fee colecting account
+        ctx.accounts.escrow_account.fee_collect_token_account =
+            *ctx.accounts.fee_collect_token_account.to_account_info().key;
+
+        //fee amounts
         ctx.accounts.escrow_account.fee_amount_initializer = fee_amount_initializer;
         ctx.accounts.escrow_account.fee_amount_taker = fee_amount_taker;
-        ctx.accounts.escrow_account.initializer_fee_paying_token_account = *ctx.accounts.initializer_fee_paying_token_account.to_account_info().key;
+
+        // initializer fee paying token account
+        ctx.accounts
+            .escrow_account
+            .initializer_fee_paying_token_account = *ctx
+            .accounts
+            .initializer_fee_paying_token_account
+            .to_account_info()
+            .key;
         Ok(())
     }
 
@@ -113,27 +147,34 @@ pub mod scrt_escrow {
             ctx.accounts.escrow_account.initializer_amount,
         )?;
 
-        //withdraw fee  
+        //withdraw fee
+        let (_vault_fee_authority, vault_fee_authority_bump) = Pubkey::find_program_address(
+            &[
+                ctx.accounts.pda_account.to_account_info().key.as_ref(),
+                ESCROW_PDA_SEED
+            ],
+            ctx.program_id,
+        );        
+        let authority_seeds1 = &[
+            ctx.accounts.pda_account.to_account_info().key.as_ref(),
+            &ESCROW_PDA_SEED[..],
+            &[vault_fee_authority_bump],
+        ];
+
         token::transfer(
             ctx.accounts
                 .into_transfer_to_initializer_fee_paying_context()
-                .with_signer(&[&authority_seeds[..]]),
+                .with_signer(&[&authority_seeds1[..]]),
             ctx.accounts.escrow_account.fee_amount_initializer,
         )?;
 
-        token::close_account(
-            ctx.accounts
-                .into_close_context()
-                .with_signer(&[&authority_seeds[..]]),
-        )?;
-
-        token::close_account(
-            ctx.accounts
-                .into_close_vault_fee_context()
-                .with_signer(&[&authority_seeds[..]]),
-        )?;
-
         ctx.accounts.escrow_account.initialized = 0;
+        //close
+        token::close_account(
+            ctx.accounts
+                .into_close_vault_context()
+                .with_signer(&[&authority_seeds[..]]),
+        )?;
         Ok(())
     }
 
@@ -153,14 +194,27 @@ pub mod scrt_escrow {
 
         //collect fee
         token::transfer(
-            ctx.accounts.into_transfer_to_fee_collct_b_context(),
-            ctx.accounts.escrow_account.fee_amount_taker ,
+            ctx.accounts.into_transfer_fee_from_taker_context(),
+            ctx.accounts.escrow_account.fee_amount_taker,
         )?;
+
+        let (_vault_fee_authority, vault_fee_authority_bump) = Pubkey::find_program_address(
+            &[
+                ctx.accounts.pda_account.to_account_info().key.as_ref(),
+                ESCROW_PDA_SEED
+            ],
+            ctx.program_id,
+        );        
+        let authority_seeds1 = &[
+            ctx.accounts.pda_account.to_account_info().key.as_ref(),
+            &ESCROW_PDA_SEED[..],
+            &[vault_fee_authority_bump],
+        ];
 
         token::transfer(
             ctx.accounts
-                .into_transfer_to_fee_collct_a_context()
-                .with_signer(&[&authority_seeds[..]]),
+                .into_transfer_fee_from_vault_context()
+                .with_signer(&[&authority_seeds1[..]]),
             ctx.accounts.escrow_account.fee_amount_initializer,
         )?;
 
@@ -177,18 +231,12 @@ pub mod scrt_escrow {
             ctx.accounts.escrow_account.initializer_amount,
         )?;
 
-        //close accounts
+        //close account
         token::close_account(
             ctx.accounts
-                .into_close_context()
+                .into_close_vault_context()
                 .with_signer(&[&authority_seeds[..]]),
         )?;
-        token::close_account(
-            ctx.accounts
-                .into_close_vault_fee_context()
-                .with_signer(&[&authority_seeds[..]]),
-        )?;
-
         ctx.accounts.escrow_account.initialized = 0;
         Ok(())
     }

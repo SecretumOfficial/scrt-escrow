@@ -6,7 +6,7 @@
     },
     "testnet": {
         "url":"https://api.testnet.solana.com",
-        "program":"G1DWoX1TXqmeSveZNdUdFLvs4mcsGgQWQ8Sk29SYXjix"
+        "program":"HbzBdq7txgxVSWGUgyifsCPEGhGmQs5j7ReD9qc1Pdbx"
     },
     "devnet": {
         "url":"https://api.devnet.solana.com",

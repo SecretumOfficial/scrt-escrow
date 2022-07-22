@@ -2,6 +2,43 @@ const anchor = require('@project-serum/anchor');
 const { TOKEN_PROGRAM_ID } = require('@solana/spl-token');
 const utils = require('../lib/utils');
 
+const PDA_SEED  = "ser-escrow";
+
+async function initializePda(
+    program,
+    feeToken,
+    signer,
+) {
+
+    const [pdaAccount] = await anchor.web3.PublicKey.findProgramAddress(
+        [program.programId.toBuffer(), feeToken.toBuffer(), Buffer.from(PDA_SEED)], program.programId);
+
+    const [vaultFeeAccount] = await anchor.web3.PublicKey.findProgramAddress(
+        [pdaAccount.toBuffer()], program.programId);
+    
+    const pdaData = await utils.getPdaAccount(program, pdaAccount);
+    if(pdaData == null)
+    {
+        await program.rpc.initializePda(
+            {
+                accounts: {
+                    initializer: signer.publicKey,
+                    pdaAccount,
+                    vaultFeeAccount,
+                    feeToken,
+                    tokenProgram: TOKEN_PROGRAM_ID,
+                    systemProgram: anchor.web3.SystemProgram.programId,
+                    rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+                },
+                signers: [signer],
+            },
+        );
+        return 'ok';
+    } else{
+        return 'alreday exist';
+    }
+}
+
 
 async function initialize(
     program,    
@@ -12,12 +49,19 @@ async function initialize(
     receiveToken,    
     initReceiveTokenAcc,
     feeToken,
-    feeCollectTokenAccount,
+    feeCollectTokenAccount,    
     feeAmountInitializer,
     feeAmountTaker,
     initFeePayTokenAcc,
     signer,
 ) {
+
+    const [pdaAccount] = await anchor.web3.PublicKey.findProgramAddress(
+        [program.programId.toBuffer(), feeToken.toBuffer(), Buffer.from(PDA_SEED)], program.programId);
+    const pdaData = await utils.getPdaAccount(program, pdaAccount);
+    if(pdaData == null){
+        return 'pda is not initialized';
+    }
 
     const [escrow] = await anchor.web3.PublicKey.findProgramAddress(
         [signer.publicKey.toBuffer(), depositToken.toBuffer(), receiveToken.toBuffer()], program.programId);
@@ -37,14 +81,15 @@ async function initialize(
             {
                 accounts: {
                     initializer: signer.publicKey,
+                    feeToken,
+                    pdaAccount,
                     escrowAccount: escrow,
                     vaultAccount: vaultAccount,
                     depositToken: depositToken,
                     initializerDepositTokenAccount: initDepositTokenAcc,
                     receiveToken: receiveToken,
-                    initializerReceiveTokenAccount: initReceiveTokenAcc,
-                    feeToken,
-                    vaultFeeAccount,
+                    initializerReceiveTokenAccount: initReceiveTokenAcc,                    
+                    vaultFeeAccount: pdaData.vaultFeeAccount,
                     feeCollectTokenAccount,
                     initializerFeePayingTokenAccount: initFeePayTokenAcc,
                     tokenProgram: TOKEN_PROGRAM_ID,
@@ -64,8 +109,16 @@ async function cancel(
     program,
     depositToken,
     receiveToken,
+    feeToken,
     signer,
 ) {
+
+    const [pdaAccount] = await anchor.web3.PublicKey.findProgramAddress(
+        [program.programId.toBuffer(), feeToken.toBuffer(), Buffer.from(PDA_SEED)], program.programId);
+    const pdaData = await utils.getPdaAccount(program, pdaAccount);
+    if(pdaData == null){
+        return 'pda is not initialized';
+    }
 
     const [escrow] = await anchor.web3.PublicKey.findProgramAddress(
         [signer.publicKey.toBuffer(), depositToken.toBuffer(), receiveToken.toBuffer()], program.programId);
@@ -76,17 +129,16 @@ async function cancel(
         return 'no exist escrow';
     }
 
-    const [vaultAuthority] = await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from('escrow'), escrow.toBuffer()], program.programId);
-
     await program.rpc.cancel(
         {
             accounts: {
                 initializer: signer.publicKey,
+                pdaAccount,
                 escrowAccount: escrow,
                 vaultAccount: escrowData.vaultAccount,
-                vaultFeeAccount: escrowData.vaultFeeAccount,
-                vaultAuthority: vaultAuthority,                
+                vaultAuthority: escrowData.vaultAuthority,          
+                vaultFeeAccount: pdaData.vaultFeeAccount,
+                vaultFeeAuthority: pdaData.vaultFeeAuthority,
                 initializerDepositTokenAccount: escrowData.initializerDepositTokenAccount,
                 initializerFeePayingTokenAccount: escrowData.initializerFeePayingTokenAccount,
                 tokenProgram: TOKEN_PROGRAM_ID,
@@ -104,8 +156,16 @@ async function exchange(
     takerDepositToken,
     takerReceiveToken,
     takerFeePayAcc,
+    feeToken,
     signer,
 ) {
+
+    const [pdaAccount] = await anchor.web3.PublicKey.findProgramAddress(
+        [program.programId.toBuffer(), feeToken.toBuffer(), Buffer.from(PDA_SEED)], program.programId);
+    const pdaData = await utils.getPdaAccount(program, pdaAccount);
+    if(pdaData == null){
+        return 'pda is not initialized';
+    }
 
     const [escrow] = await anchor.web3.PublicKey.findProgramAddress(
         [initializer.toBuffer(), depositToken.toBuffer(), receiveToken.toBuffer()], program.programId);
@@ -120,23 +180,22 @@ async function exchange(
         return 'escrow is not initailized';
     }
 
-    const [vaultAuthority] = await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from('escrow'), escrow.toBuffer()], program.programId);
-
     await program.rpc.exchange(
         {
             accounts: {
                 taker: signer.publicKey,
+                pdaAccount,
+                initializer,
+                escrowAccount: escrow,
                 takerDepositTokenAccount: takerDepositToken,
                 takerReceiveTokenAccount: takerReceiveToken,
                 initializerReceiveTokenAccount: escrowData.initializerReceiveTokenAccount,
-                initializer: initializer,
-                escrowAccount: escrow,
                 vaultAccount: escrowData.vaultAccount,
-                vaultFeeAccount: escrowData.vaultFeeAccount,
+                vaultAuthority: escrowData.vaultAuthority,
+                vaultFeeAccount: pdaData.vaultFeeAccount,
+                vaultFeeAuthority: pdaData.vaultFeeAuthority,
                 feeCollectTokenAccount: escrowData.feeCollectTokenAccount,
-                takerFeePayingTokenAccount: takerFeePayAcc,
-                vaultAuthority: vaultAuthority,
+                takerFeePayingTokenAccount: takerFeePayAcc,                
                 tokenProgram: TOKEN_PROGRAM_ID,
             },
             signers: [signer],
@@ -146,7 +205,8 @@ async function exchange(
 }
 
 module.exports = {
-    initialize,   
+    initializePda,
+    initialize,
     cancel,
     exchange,
 }

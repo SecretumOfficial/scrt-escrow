@@ -152,6 +152,38 @@ const transfer = async () => {
     await refreshAccounts();
 };
 
+const initializePda = async () => {
+  const mintSER = new web3.PublicKey(document.getElementById('mint_ser').value);
+  const connection = new web3.Connection(URL, 'confirmed');
+  const provider = await getProvider();
+  const anchor_provider = await getAnchorProvider();
+  const program = new anchor.Program(tokenlockIdl, programId, anchor_provider);
+
+  const res = await lib.initializePda(program, connection,
+    mintSER, provider);
+
+  if(res[0] == null)
+  {
+    alert(res[1]);
+  }else{
+    alert("initialePda success");
+  }
+}
+
+
+const checkPda = async () => {
+  const mintSER = new web3.PublicKey(document.getElementById('mint_ser').value);
+  const connection = new web3.Connection(URL, 'confirmed');
+  const provider = await getProvider();
+  const anchor_provider = await getAnchorProvider();
+  const program = new anchor.Program(tokenlockIdl, programId, anchor_provider);
+
+  const res = await utils.getPdaAccountData(program, mintSER);
+  if(res){
+    console.log("feeToken", res.feeToken.toString());
+    console.log("VaultFeeToken", res.vaultFeeAccount.toString());
+  }  
+}
 
 const initialize = async () => {
   const mintA = new web3.PublicKey(document.getElementById('mint_a').value);
@@ -286,6 +318,15 @@ const tokens_refresh=async () =>{
 
   const mintto_btn = document.getElementById('mintto_btn');  
   mintto_btn.addEventListener('click', mintTo);
+
+  
+  const init_pda_btn = document.getElementById('init_pda_btn');  
+  init_pda_btn.addEventListener('click', initializePda);
+
+  
+  const check_pda_btn = document.getElementById('check_pda_btn');  
+  check_pda_btn.addEventListener('click', checkPda);
+
 
   const init_btn = document.getElementById('init_btn');  
   init_btn.addEventListener('click', initialize);
