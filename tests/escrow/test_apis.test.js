@@ -101,6 +101,30 @@ describe('Escrow tests', () => {
         console.log(res);
     });
 
+    it('check escrow after init', async () => {
+        console.log("init ....");
+        await lib.initialize(
+            program,
+            1000,
+            2000,
+            mintA.publicKey,
+            initializerDepositTokenAccount,
+            mintB.publicKey,
+            initializerReceiveTokenAccount,
+            mintC.publicKey,            
+            feeCollectTokenAccount,
+            10,
+            20,
+            initializerFeePayTokenAccount,
+            walletA
+        );
+
+        console.log("getting esrow data...");
+        const escrowData = await utils.getEscrowData1(provider.connection, programId, walletA.publicKey, mintA.publicKey, mintB.publicKey);
+        console.log(escrowData.initializerKey.toBase58(), walletA.publicKey.toBase58());
+        console.log(escrowData);
+    });
+
     it('init already setteled', async () => {
 
         let initializerDepositerBalance =  await utils.getTokenAccountBalance(program.provider.connection, initializerDepositTokenAccount);
