@@ -1,0 +1,36 @@
+solana-keygen
+solana-test-validator
+
+
+1. airdrop 10 SOL to the wallet1 & wallet2
+2. create token_a, token_b on the wallet1
+3. create token_a, token_b account in wallet1 and mint token_a 10000
+
+4. create token_a, token_b account in wallet2 and mint token_b 20000
+
+wallet1 state,  token_a 10000, token_b 0
+wallet2 state,  token_a 0, token_b 20000
+
+5. call initialize on the wallet1 (1000, 2000)
+we have to check .  wallet1 token_a 9000, token_b 0
+
+6. call cancel  on the wallet1
+we have to check .  wallet1 token_a 10000, token_b 0
+
+7. call init again
+we have to check .  wallet1 token_a 9000, token_b 0
+
+8. call excahnge on the wallet2
+we have to check .  wallet1 token_a 9000, token_b 2000
+		wallet2 token_a 1000, token_b 18000
+
+
+
+run solana local test vlidator
+solana-test-validator
+
+run tests
+mocha --timeout 100000 ./tests/escrow/test_apis.test.js
+mocha --timeout 100000 ./tests/escrow/test.test.js
+
+deploy testnet
