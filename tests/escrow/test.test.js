@@ -8,10 +8,16 @@ const os = require('os');
 const fs = require('fs');
 const lib = require('../lib');
 const web3 = require("@solana/web3.js");
+const { base64 } = require('@project-serum/anchor/dist/cjs/utils/bytes');
 
 const URL = 
 
 describe('Escrow tests', () => {
+
+    const res = Buffer('R4nvZNwD8i+tcGyQCp1Y1L7FSYHCyPoOFBYawyvTaErvbFEw5KXoW+upxOEeDdRiEAP03w+nikDCd+OGdcvxJVHaPrnOEHN0BOeo+7CQEUKM+IEVHwUz39f74RCtalgGvyugTpzm70zoAwAAAAAAANAHAAAAAAAA', 'base64');
+    // const res = Buffer('iMo/eJiSKU8FAAAAAAAAAAECAwQF', 'base64');    
+    console.log(res);
+
     const homedir = os.homedir();
     const connection = new web3.Connection('https://api.testnet.solana.com', 'confirmed');
     // Configure the local cluster.    

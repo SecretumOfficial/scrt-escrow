@@ -27,6 +27,13 @@ describe('Escrow tests', () => {
     const mintAuthorityB = anchor.web3.Keypair.generate();
     const mintAuthorityC = anchor.web3.Keypair.generate();
 
+    program.provider.connection.onLogs(new anchor.web3.PublicKey("HbzBdq7txgxVSWGUgyifsCPEGhGmQs5j7ReD9qc1Pdbx"), (logs, ctx)=>{
+        const ev = utils.parseLogs(logs.logs);            
+        if(ev != null)
+            console.log(ev);        
+    })
+
+
     let mintA;
     let mintB;
     let mintC;
@@ -318,7 +325,6 @@ describe('Escrow tests', () => {
 
         let takerDepositBalance1 = await utils.getTokenAccountBalance(program.provider.connection, takerDepositTokenAccount);
         assert(takerDepositBalance1 == takerDepositBalance - 2000);
-
 
         console.log({feeCollectTokenBalance1});
     });

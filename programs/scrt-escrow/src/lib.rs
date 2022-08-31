@@ -40,6 +40,19 @@ pub mod scrt_escrow {
         Ok(())
     }
 
+    #[event]
+    pub struct InitializEvent {
+        pub initializer: Pubkey,
+        pub deposit_token: Pubkey,
+        pub receive_token: Pubkey,        
+        pub fee_token: Pubkey,    
+        pub fee_collector: Pubkey,            
+        pub deposit_amount: u64,
+        pub receive_amount: u64,
+        pub initializer_fee_amount: u64,
+        pub taker_fee_amount: u64,
+    }
+
     pub fn initialize(
         ctx: Context<Initialize>,
         initializer_amount: u64,
@@ -135,9 +148,31 @@ pub mod scrt_escrow {
             .initializer_fee_paying_token_account
             .to_account_info()
             .key;
+
+        emit!(InitializEvent {
+            initializer: *ctx.accounts.initializer.key,
+            deposit_token: *ctx.accounts.deposit_token.key,
+            receive_token: *ctx.accounts.receive_token.key,
+            fee_token: *ctx.accounts.fee_token.key,
+            fee_collector: *ctx.accounts.fee_collect_token_account.to_account_info().key,
+            deposit_amount: initializer_amount,
+            receive_amount: taker_amount,
+            initializer_fee_amount: fee_amount_initializer,
+            taker_fee_amount: fee_amount_taker,
+        });
+
         Ok(())
     }
 
+
+    #[event]
+    pub struct CancelEvent {
+        pub initializer: Pubkey,
+        pub deposit_token: Pubkey,
+        pub receive_token: Pubkey,
+        pub deposit_amount: u64,
+        pub receive_amount: u64,
+    }    
     pub fn cancel(ctx: Context<Cancel>) -> ProgramResult {
         let (_vault_authority, vault_authority_bump) = Pubkey::find_program_address(
             &[
@@ -190,7 +225,25 @@ pub mod scrt_escrow {
                 .into_close_vault_context()
                 .with_signer(&[&authority_seeds[..]]),
         )?;
+
+        emit!(CancelEvent {
+            initializer: *ctx.accounts.initializer.key,
+            deposit_token: ctx.accounts.escrow_account.deposit_token,
+            receive_token: ctx.accounts.escrow_account.receive_token,
+            deposit_amount: ctx.accounts.escrow_account.initializer_amount ,
+            receive_amount: ctx.accounts.escrow_account.taker_amount,
+        });
         Ok(())
+    }
+
+    #[event]
+    pub struct ExchangeEvent {
+        pub initializer: Pubkey,
+        pub taker: Pubkey,
+        pub deposit_token: Pubkey,
+        pub receive_token: Pubkey,        
+        pub deposit_amount: u64,
+        pub receive_amount: u64,
     }
 
     pub fn exchange(ctx: Context<Exchange>) -> ProgramResult {
@@ -258,6 +311,16 @@ pub mod scrt_escrow {
                 .with_signer(&[&authority_seeds[..]]),
         )?;
         ctx.accounts.escrow_account.initialized = 0;
+
+        emit!(ExchangeEvent {
+            initializer: ctx.accounts.escrow_account.initializer_key,
+            taker: *ctx.accounts.taker.key,
+            deposit_token: ctx.accounts.escrow_account.deposit_token,
+            receive_token: ctx.accounts.escrow_account.receive_token,
+            deposit_amount: ctx.accounts.escrow_account.initializer_amount ,
+            receive_amount: ctx.accounts.escrow_account.taker_amount,
+        });
+
         Ok(())
     }
 }
