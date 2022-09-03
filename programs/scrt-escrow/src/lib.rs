@@ -62,11 +62,26 @@ pub mod scrt_escrow {
     ) -> ProgramResult {
         // check amounts
         if initializer_amount == 0{
-            return Err(ScrtEscrowErrors::InvalidInitializerTokenlockAmount.into());
+            return Err(ScrtEscrowErrors::InvalidInitializerTokenAmount.into());
         }
         if taker_amount == 0{
-            return Err(ScrtEscrowErrors::InvalidTakerTokenlockAmount.into());
+            return Err(ScrtEscrowErrors::InvalidTakerTokenAmount.into());
         }
+
+        // check fee balance
+        let mut fee = fee_amount_initializer;
+        if *ctx.accounts.fee_token.key == *ctx.accounts.deposit_token.key{
+            fee = fee + initializer_amount;
+        }
+        if ctx.accounts.initializer_fee_paying_token_account.amount < fee{
+            return Err(ScrtEscrowErrors::InitializerFeeAmountInsufficient.into());
+        }
+
+        // check token balance
+        if ctx.accounts.initializer_deposit_token_account.amount < initializer_amount{
+            return Err(ScrtEscrowErrors::InitializerTokenAmountInsufficient.into());
+        }
+
 
         //initializer
         ctx.accounts.escrow_account.initializer_key = *ctx.accounts.initializer.key;
@@ -98,6 +113,7 @@ pub mod scrt_escrow {
             ],
             ctx.program_id,
         );
+
         token::set_authority(
             ctx.accounts.into_set_authority_context(),
             AuthorityType::AccountOwner,
@@ -247,6 +263,22 @@ pub mod scrt_escrow {
     }
 
     pub fn exchange(ctx: Context<Exchange>) -> ProgramResult {
+
+        // check fee balance
+        let mut fee = ctx.accounts.escrow_account.fee_amount_taker;
+        if ctx.accounts.escrow_account.fee_token == ctx.accounts.escrow_account.receive_token{
+            fee = fee + ctx.accounts.escrow_account.fee_amount_taker;
+        }
+        if ctx.accounts.taker_fee_paying_token_account.amount < fee{
+            return Err(ScrtEscrowErrors::TakerFeeAmountInsufficient.into());
+        }
+
+        // check token balance
+        if ctx.accounts.taker_deposit_token_account.amount < ctx.accounts.escrow_account.taker_amount{
+            return Err(ScrtEscrowErrors::TakerTokenAmountInsufficient.into());
+        }
+
+
         let (_vault_authority, vault_authority_bump) = Pubkey::find_program_address(
             &[
                 ESCROW_PDA_SEED,

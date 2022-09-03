@@ -328,4 +328,73 @@ describe('Escrow tests', () => {
 
         console.log({feeCollectTokenBalance1});
     });
+
+    it('exchange with same token', async () => {
+        //initialize signer
+        let initializerDepositerBalance =  await utils.getTokenAccountBalance(program.provider.connection, initializerDepositTokenAccount);
+        let initializerFeePayerBalance = await utils.getTokenAccountBalance(program.provider.connection, initializerFeePayTokenAccount); 
+        
+        console.log("init ....");
+        await lib.initialize(
+            program,
+            1000,
+            2000,
+            mintC.publicKey,
+            initializerFeePayTokenAccount,
+            mintC.publicKey,
+            initializerFeePayTokenAccount,
+            mintC.publicKey,
+            feeCollectTokenAccount,
+            10,
+            20,
+            initializerFeePayTokenAccount,
+            walletA
+        );
+    //     let initializerDepositerBalance1 = await utils.getTokenAccountBalance(program.provider.connection, initializerDepositTokenAccount);
+    //     assert(initializerDepositerBalance1  == initializerDepositerBalance - 1000);
+
+    //     let initializerFeePayerBalance1 = await utils.getTokenAccountBalance(program.provider.connection, initializerFeePayTokenAccount);
+    //     assert(initializerFeePayerBalance1  == initializerFeePayerBalance - 10);
+
+
+    //     let initializerReceiverBalance = await utils.getTokenAccountBalance(program.provider.connection, initializerReceiveTokenAccount);
+    //     let takerReceiverBalance = await utils.getTokenAccountBalance(program.provider.connection, takerReceiveTokenAccount);
+    //     let takerDepositBalance = await utils.getTokenAccountBalance(program.provider.connection, takerDepositTokenAccount);
+
+    //     let feeCollectTokenBalance = await utils.getTokenAccountBalance(program.provider.connection, feeCollectTokenAccount);
+
+    //     console.log("exchange ....");
+    //     const res = await lib.exchange(
+    //         program, 
+    //         walletA.publicKey, 
+    //         mintA.publicKey, 
+    //         mintB.publicKey,  
+    //         takerDepositTokenAccount, 
+    //         takerReceiveTokenAccount, 
+    //         takerFeePayTokenAccount,
+    //         mintC.publicKey,
+    //         walletB
+    //     );
+    //     let feeCollectTokenBalance1 = await utils.getTokenAccountBalance(program.provider.connection, feeCollectTokenAccount);
+    //     assert(feeCollectTokenBalance1  == feeCollectTokenBalance + 30);
+
+
+    //     //not change initDepositToken balance
+    //     initializerDepositerBalance1 = await utils.getTokenAccountBalance(program.provider.connection, initializerDepositTokenAccount);
+    //     assert(initializerDepositerBalance1  == initializerDepositerBalance - 1000);
+
+    //     //changed initReceiverToken bal
+    //     let initializerReceiverBalance1 = await utils.getTokenAccountBalance(program.provider.connection, initializerReceiveTokenAccount);
+    //     assert(initializerReceiverBalance1  == initializerReceiverBalance + 2000);
+
+    //     //check taker bals
+    //     let takerReceiverBalance1 = await utils.getTokenAccountBalance(program.provider.connection, takerReceiveTokenAccount);
+    //     assert(takerReceiverBalance1 == takerReceiverBalance + 1000);
+
+    //     let takerDepositBalance1 = await utils.getTokenAccountBalance(program.provider.connection, takerDepositTokenAccount);
+    //     assert(takerDepositBalance1 == takerDepositBalance - 2000);
+
+    //     console.log({feeCollectTokenBalance1});
+    });
+
 })

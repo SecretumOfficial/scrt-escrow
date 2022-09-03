@@ -75,7 +75,7 @@ impl<'info> InitializePda<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(initializer_amount: u64, fee_amount_initializer: u64)]
+//#[instruction(initializer_amount: u64, fee_amount_initializer: u64)]
 pub struct Initialize<'info> {
     #[account(mut, signer)]
     pub initializer: AccountInfo<'info>,
@@ -109,7 +109,7 @@ pub struct Initialize<'info> {
     #[account(
         mut,
         constraint = *initializer_deposit_token_account.to_account_info().owner == *token_program.key,
-        constraint = initializer_deposit_token_account.amount >= initializer_amount,
+//        constraint = initializer_deposit_token_account.amount >= initializer_amount,
         constraint = initializer_deposit_token_account.mint == *deposit_token.key,
         constraint = initializer_deposit_token_account.owner == *initializer.key
     )]
@@ -140,7 +140,7 @@ pub struct Initialize<'info> {
         mut,
         constraint = *initializer_fee_paying_token_account.to_account_info().owner == *token_program.key,
         constraint = initializer_fee_paying_token_account.mint == pda_account.fee_token,
-        constraint = initializer_fee_paying_token_account.amount >= fee_amount_initializer,
+//        constraint = initializer_fee_paying_token_account.amount >= fee_amount_initializer,
         constraint = initializer_fee_paying_token_account.owner == *initializer.key
     )]
     pub initializer_fee_paying_token_account: Box<Account<'info, TokenAccount>>,
