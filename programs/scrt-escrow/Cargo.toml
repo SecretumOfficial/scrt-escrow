@@ -19,8 +19,8 @@ anchor-lang = "0.17.0"
 anchor-spl = "0.17.0"
 spl-token = {version = "3.1.1", features = ["no-entrypoint"]}
 
-getrandom = { version = "0.2.2", features = ["custom"] }
-p256 = "0.11.1"
+#getrandom = { version = "0.2.2", features = ["custom"] }
+#p256 = "0.11.1"
 
 #getrandom = { version = "0.1.1", features = ["dummy"] }
 #ed25519_dalek = "1.0.1"
