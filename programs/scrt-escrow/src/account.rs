@@ -36,8 +36,10 @@ pub struct EscrowAccount {
 
 #[derive(Accounts)]
 pub struct InitializePda<'info> {
+    /// CHECK
     #[account(mut, signer)]
     pub initializer: AccountInfo<'info>,
+    /// CHECK
     pub fee_token: AccountInfo<'info>,
     #[account(init,
         seeds = [program_id.as_ref(), fee_token.key.as_ref(), PDA_SEED],
