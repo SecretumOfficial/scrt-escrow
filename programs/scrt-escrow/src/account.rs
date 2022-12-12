@@ -59,11 +59,12 @@ pub struct InitializePda<'info> {
     )]
     pub vault_fee_account: Box<Account<'info, TokenAccount>>,
 
+    /// CHECK
     #[account(address = anchor_spl::token::ID)]
     pub token_program: AccountInfo<'info>,
 
+    /// CHECK
     pub system_program: AccountInfo<'info>,
-
     pub rent: Sysvar<'info, Rent>,
 }
 impl<'info> InitializePda<'info> {
@@ -79,8 +80,10 @@ impl<'info> InitializePda<'info> {
 #[derive(Accounts)]
 //#[instruction(initializer_amount: u64, fee_amount_initializer: u64)]
 pub struct Initialize<'info> {
+    /// CHECK
     #[account(mut, signer)]
     pub initializer: AccountInfo<'info>,
+    /// CHECK
     pub fee_token: AccountInfo<'info>,
 
     #[account(
@@ -89,6 +92,7 @@ pub struct Initialize<'info> {
     )]
     pub pda_account: ProgramAccount<'info, PdaAccount>,
 
+    /// CHECK
     pub deposit_token: AccountInfo<'info>,
     #[account(init,
         seeds = [initializer.key.as_ref(), deposit_token.key.as_ref(), receive_token.key.as_ref()],
@@ -117,6 +121,7 @@ pub struct Initialize<'info> {
     )]
     pub initializer_deposit_token_account: Box<Account<'info, TokenAccount>>,
 
+    /// CHECK
     pub receive_token: AccountInfo<'info>,
     #[account(
         constraint = *initializer_receive_token_account.to_account_info().owner == *token_program.key,
@@ -132,6 +137,7 @@ pub struct Initialize<'info> {
     )]
     pub fee_collect_token_account: Box<Account<'info, TokenAccount>>,
 
+    /// CHECK
     #[account(
         mut,
         constraint = *vault_fee_account.key == pda_account.vault_fee_account,
@@ -147,9 +153,11 @@ pub struct Initialize<'info> {
     )]
     pub initializer_fee_paying_token_account: Box<Account<'info, TokenAccount>>,
 
+    /// CHECK
     #[account(address = anchor_spl::token::ID)]
     pub token_program: AccountInfo<'info>,
 
+    /// CHECK
     pub system_program: AccountInfo<'info>,
 
     pub rent: Sysvar<'info, Rent>,
@@ -194,6 +202,7 @@ impl<'info> Initialize<'info> {
 /////////Cancel////////////////
 #[derive(Accounts)]
 pub struct Cancel<'info> {
+    /// CHECK
     #[account(mut, signer)]
     pub initializer: AccountInfo<'info>,
 
@@ -215,6 +224,7 @@ pub struct Cancel<'info> {
     )]
     pub vault_account: Box<Account<'info, TokenAccount>>,
 
+    /// CHECK
     #[account(
         constraint = escrow_account.vault_authority== *vault_authority.key,
     )]
@@ -231,6 +241,7 @@ pub struct Cancel<'info> {
     pub initializer_fee_paying_token_account: Box<Account<'info, TokenAccount>>,
 
     // fee collecting
+    /// CHECK
     #[account(
         mut,
         constraint = *vault_fee_account.key == pda_account.vault_fee_account,
@@ -288,6 +299,7 @@ impl<'info> Cancel<'info> {
 ///////////Exchange///////////////////
 #[derive(Accounts)]
 pub struct Exchange<'info> {
+    /// CHECK
     #[account(mut, signer)]
     pub taker: AccountInfo<'info>,
 
@@ -297,6 +309,7 @@ pub struct Exchange<'info> {
     )]    
     pub pda_account: ProgramAccount<'info, PdaAccount>,
 
+    /// CHECK
     #[account(mut)]
     pub initializer: AccountInfo<'info>,
 
@@ -322,32 +335,38 @@ pub struct Exchange<'info> {
     )]
     pub taker_receive_token_account: Box<Account<'info, TokenAccount>>,
 
+    /// CHECK
     #[account(mut,
         constraint = *initializer_receive_token_account.key == escrow_account.initializer_receive_token_account
     )]
     pub initializer_receive_token_account: AccountInfo<'info>,
 
+    /// CHECK
     #[account(mut,
         constraint = escrow_account.vault_account == *vault_account.key,
     )]
     pub vault_account: AccountInfo<'info>,
 
+    /// CHECK
     #[account(mut,
         constraint = escrow_account.vault_authority == *vault_authority.key,
     )]
     pub vault_authority: AccountInfo<'info>,
 
     // fee collecting
+    /// CHECK
     #[account(mut,
         constraint = pda_account.vault_fee_account == *vault_fee_account.key,
     )]
     pub vault_fee_account: AccountInfo<'info>,
 
+    /// CHECK
     #[account(
         constraint = pda_account.vault_fee_authority == *vault_fee_authority.key,
     )]
     pub vault_fee_authority: AccountInfo<'info>,
 
+    /// CHECK
     #[account(mut,
         constraint = *fee_collect_token_account.key == escrow_account.fee_collect_token_account,
     )]
@@ -360,6 +379,7 @@ pub struct Exchange<'info> {
     )]
     pub taker_fee_paying_token_account: Box<Account<'info, TokenAccount>>,
 
+    /// CHECK
     pub token_program: AccountInfo<'info>,
 }
 
