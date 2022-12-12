@@ -253,6 +253,7 @@ pub struct Cancel<'info> {
     )]
     pub vault_fee_authority: AccountInfo<'info>,
 
+    /// CHECK
     #[account(address = anchor_spl::token::ID)]
     pub token_program: AccountInfo<'info>,
 }
