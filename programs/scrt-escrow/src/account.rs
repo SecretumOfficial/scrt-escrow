@@ -248,6 +248,7 @@ pub struct Cancel<'info> {
     )]
     pub vault_fee_account: AccountInfo<'info>,
 
+    /// CHECK    
     #[account(
         constraint = *vault_fee_authority.key == pda_account.vault_fee_authority,
     )]
